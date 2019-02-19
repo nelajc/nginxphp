@@ -1,0 +1,62 @@
+version: '3.6'
+services:
+  percona:
+    image: 'percona:5.7'
+    container_name: percona
+    volumes:
+      - 'percona_data:/var/lib/mysql'
+    ports:
+      - '3306:3306'
+    networks:
+      - wpnet
+    environment:
+      - MYSQL_ROOT_PASSWORD=percona
+      - MYSQL_DATABASE=mydb
+      - MYSQL_USER=mydbuser
+      - MYSQL_PASSWORD=mydbpasswd
+    restart: always
+
+  wordpress:
+    image: wordpress:latest
+    container_name: wordpress
+    volumes:
+      - './wordpress:/var/www/html'
+    ports:
+      - '8080:80'
+    networks:
+      - wpnet
+    environment:
+      - WORDPRESS_DB_HOST=percona
+      - WORDPRESS_DB_USER=mydbuser
+      - WORDPRESS_DB_PASSWORD=mydbpasswd
+      - WORDPRESS_DB_NAME=mydb
+      - WORDPRESS_TABLE_PREFIX=wp_
+    links:
+      - percona
+    restart: always
+
+  nginx:
+    image: nelajc/nginxphp:latest
+    container_name: nginx
+    volumes:
+      - './configs/default.conf:/etc/nginx/conf.d/default.conf'
+      - './nginx/logs:/var/log/nginx'
+      - './wordpress:/var/www/wordpress'
+      - './configs/startphp.sh:/usr/local/bin/startphp.sh'
+    ports:
+      - '80:80'
+      - '443:443'
+    networks:
+      - wpnet
+    links:
+      - percona
+    restart: always
+    privileged: true
+    command: /bin/bash -c "/usr/local/bin/startphp.sh && exec nginx -g 'daemon off;'"
+
+volumes:
+  percona_data:
+    driver: local
+networks:
+  wpnet:
+    driver: bridge
